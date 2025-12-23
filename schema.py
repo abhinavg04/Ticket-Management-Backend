@@ -1,17 +1,26 @@
 from pydantic import BaseModel,Field
 from typing import Optional
 from uuid import UUID
-from model.models import Category, PriorityEnum,StatusEnum
+from model.models import Category, PriorityEnum,StatusEnum,UserStatus,Role
 from datetime import date
+
 
 class UserCreate(BaseModel):
     username:str
     password:str
+    email:str
+    emp_id:str
+    full_name:str
+
     
 class UserPublic(BaseModel):
     id:UUID
     username:str
     role:str
+    email:str
+    emp_id:str
+    full_name:str
+    status:UserStatus
     
 class TicketCreate(BaseModel):
     category: Category

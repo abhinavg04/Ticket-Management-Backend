@@ -52,7 +52,7 @@ def export_tickets(session: Session = Depends(get_session),current_user: User = 
     }
 
     # ------------------ TITLE ------------------
-    ws.merge_cells("A1:I1")
+    ws.merge_cells("A1:J1")
     ws["A1"] = "ACPL - Incident & Ticket Log"
     ws["A1"].font = Font(bold=True, size=14)
     ws["A1"].alignment = center
@@ -134,12 +134,19 @@ def export_tickets(session: Session = Depends(get_session),current_user: User = 
 
 @router.get("/assigned/me", response_model=List[TicketPublic])
 def my_assigned_tickets(
+    status: StatusEnum | None = None,
+    priority: PriorityEnum | None = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     stmt = select(Ticket).where(
         Ticket.assigned_to_id == current_user.id
     )
+    if status:
+        stmt = stmt.where(Ticket.status == status)
+    if priority:
+        stmt = stmt.where(Ticket.priority == priority)
+        
     tickets = session.exec(stmt.options(
             selectinload(Ticket.reported_by),
             selectinload(Ticket.assigned_to),
@@ -192,6 +199,8 @@ def create_ticket(
 def list_tickets(
     status: StatusEnum | None = None,
     priority: PriorityEnum | None = None,
+    limit:int|None = None,
+    offset:int|None = None,
     session: Session = Depends(get_session)
 ):
     stmt = select(Ticket)
@@ -200,10 +209,18 @@ def list_tickets(
         stmt = stmt.where(Ticket.status == status)
     if priority:
         stmt = stmt.where(Ticket.priority == priority)
-    tickets = session.exec(stmt.options(
+        
+    stmt = (
+        stmt
+        .offset(offset)
+        .limit(limit)
+        .options(
             selectinload(Ticket.reported_by),
             selectinload(Ticket.assigned_to),
-        )).all()
+        )
+    )
+
+    tickets = session.exec(stmt).all()
     result = []
 
     for t in tickets:

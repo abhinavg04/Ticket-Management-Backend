@@ -1,3 +1,4 @@
+from uuid import UUID
 from sqlmodel import Session, select
 from core.db import get_session
 from fastapi.security import OAuth2PasswordRequestForm
@@ -5,7 +6,7 @@ from typing import Annotated, List
 from fastapi import Depends,HTTPException,status,APIRouter
 from core.config import settings
 from datetime import timedelta
-from model.models import User
+from model.models import User,UserStatus,Role
 from pydantic import BaseModel
 from core.auth import authenticate_user,create_access_token,get_current_user
 from schema import UserCreate,UserPublic
@@ -20,10 +21,32 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     
+@router.put("/{user_id}/{status}")
+async def updateStatus(
+    user_id: UUID,  
+    status:UserStatus,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != Role.ADMIN:
+        raise HTTPException(status_code=403)
+
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404)
+
+    user.status = status
+    session.add(user)
+    session.commit()
+
+    return {"message": f"User {status}"}
+    
 @router.get("/getAll",status_code=status.HTTP_200_OK,response_model=List[UserPublic])
-async def getAllUser(session:Annotated[Session,Depends(get_session)]):
-    users = session.exec(select(User))
-    return users.all()
+async def getAllUser(session:Annotated[Session,Depends(get_session)],user_status :UserStatus|None = None):
+    users = select(User).where(User.role != Role.ADMIN)
+    if user_status:
+        users = users.where(User.status == user_status.value)
+    return session.exec(users).all()
     
     
 @router.post("/",status_code=status.HTTP_201_CREATED,response_model=UserPublic)

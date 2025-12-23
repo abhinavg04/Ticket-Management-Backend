@@ -1,9 +1,10 @@
 from sqlmodel import SQLModel,Field,Relationship
 from uuid import UUID,uuid4
 from typing import Optional,List
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 from sqlalchemy import Column, Date
+from zoneinfo import ZoneInfo
 
 
 
@@ -69,13 +70,29 @@ class Ticket(SQLModel, table=True):
     resolution_summary: Optional[str] = None
 
     date_closed: Optional[date] = None
-
+    
+class UserStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    
 class User(SQLModel,table=True):
     id:UUID = Field(default_factory=uuid4,primary_key=True)
     username:str = Field(unique=True)
+    full_name:str
+    email: str = Field(
+        unique=True,
+        nullable=False,
+        max_length=100
+    )
+    status: UserStatus = Field(
+        default=UserStatus.PENDING,
+        nullable=False
+    )
+    is_active: bool = Field(default=True)
     password:str
     role:Role = Role.USER
-    
+    emp_id:str
     # Tickets ASSIGNED to this user
     assigned_tickets: List["Ticket"] = Relationship(
         back_populates="assigned_to",
