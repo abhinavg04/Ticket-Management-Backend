@@ -86,6 +86,8 @@ def authenticate_user(username: str, password: str,session:db_dependency):
     user = get_user_by_username(username,session=session)
     if not user:
         return False
+    if user.status != 'APPROVED':
+        return False
     if not verify_password(password, user.password):
         return False
     return user

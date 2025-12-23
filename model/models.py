@@ -1,9 +1,10 @@
-from sqlmodel import SQLModel,Field
+from sqlmodel import SQLModel,Field,Relationship
 from uuid import UUID,uuid4
-from typing import Optional
-from datetime import date
+from typing import Optional,List
+from datetime import date, datetime, timezone
 from enum import Enum
 from sqlalchemy import Column, Date
+from zoneinfo import ZoneInfo
 
 
 
@@ -36,7 +37,13 @@ class Ticket(SQLModel, table=True):
         index=True,
         unique=True
     )
-    reported_by: str
+    reported_by_id: UUID = Field(foreign_key="user.id")
+    reported_by: "User" = Relationship(
+        back_populates='reported_tickets',
+        sa_relationship_kwargs={
+            "foreign_keys": "Ticket.reported_by_id"
+        }
+    )
     date_reported: date = Field(
         sa_column=Column(
             Date,
@@ -45,7 +52,16 @@ class Ticket(SQLModel, table=True):
     )
     category:Category = Category.network
     issue_description: str
-    assigned_to: str
+    assigned_to_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="user.id"
+    )
+    assigned_to: Optional["User"] = Relationship(
+        back_populates='assigned_tickets',
+        sa_relationship_kwargs={
+            'foreign_keys':'Ticket.assigned_to_id'
+        }
+    )
 
     priority: PriorityEnum = PriorityEnum.medium
     status: StatusEnum = StatusEnum.open
@@ -54,9 +70,41 @@ class Ticket(SQLModel, table=True):
     resolution_summary: Optional[str] = None
 
     date_closed: Optional[date] = None
-
+    
+class UserStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    
 class User(SQLModel,table=True):
     id:UUID = Field(default_factory=uuid4,primary_key=True)
     username:str = Field(unique=True)
+    full_name:str
+    email: str = Field(
+        unique=True,
+        nullable=False,
+        max_length=100
+    )
+    status: UserStatus = Field(
+        default=UserStatus.PENDING,
+        nullable=False
+    )
+    is_active: bool = Field(default=True)
     password:str
     role:Role = Role.USER
+    emp_id:str
+    # Tickets ASSIGNED to this user
+    assigned_tickets: List["Ticket"] = Relationship(
+        back_populates="assigned_to",
+        sa_relationship_kwargs={
+            "foreign_keys": "Ticket.assigned_to_id"
+        }
+    )
+
+    # Tickets REPORTED by this user
+    reported_tickets: List["Ticket"] = Relationship(
+        back_populates="reported_by",
+        sa_relationship_kwargs={
+            "foreign_keys": "Ticket.reported_by_id"
+        }
+    )
